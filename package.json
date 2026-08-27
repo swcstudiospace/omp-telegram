@@ -1,0 +1,28 @@
+{
+	"name": "omp-telegram",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "OMP Telegram plugin: every open session posts long-photo completions to one channel; comments on a post continue that session.",
+	"bin": {
+		"omp-telegram": "./src/cli.ts"
+	},
+	"scripts": {
+		"test": "bun test",
+		"check": "bunx tsc --noEmit",
+		"broker": "bun src/broker/daemon.ts"
+	},
+	"devDependencies": {
+		"@oh-my-pi/pi-coding-agent": "^18.0.4",
+		"@types/bun": "^1.4.0"
+	},
+	"omp": {
+		"extensions": ["./src/index.ts"]
+	},
+	"pi": {
+		"extensions": ["./src/index.ts"]
+	},
+	"aimee": {
+		"extensions": ["./src/index.ts"]
+	}
+}

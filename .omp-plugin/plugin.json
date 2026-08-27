@@ -1,0 +1,5 @@
+{
+	"name": "omp-telegram",
+	"description": "Control multiple OMP sessions from a Telegram channel. Completions post as long photos; comments continue that session.",
+	"version": "0.1.0"
+}
