@@ -34,9 +34,10 @@ type SessionSlot = {
 	send?: (msg: BrokerToClient) => void;
 };
 
-type UnixSocket = {
-	write(data: string | Uint8Array): number;
-	end(data?: string | Uint8Array): void;
+type Conn = {
+	buf: string;
+	send: (msg: BrokerToClient) => void;
+	end: () => void;
 };
 
 function pngDimensions(png: Uint8Array): { width: number; height: number } {
@@ -138,8 +139,13 @@ export async function createBrokerServer(opts: {
 	void discussionGroupId;
 
 	const sessions = new Map<SessionId, SessionSlot>();
-	const sockets = new Set<UnixSocket>();
-	const buffers = new WeakMap<UnixSocket, string>();
+	const conns = new Map<object, Conn>();
+
+	function dropSend(send: (msg: BrokerToClient) => void): void {
+		for (const slot of sessions.values()) {
+			if (slot.send === send) slot.send = undefined;
+		}
+	}
 
 	function roster(): RosterEntry[] {
 		const now = Date.now();
@@ -388,54 +394,56 @@ export async function createBrokerServer(opts: {
 		}
 	}
 
-	const listener = Bun.listen<UnixSocket>({
+	const listener = Bun.listen({
 		unix: sock,
 		socket: {
 			open(socket) {
-				sockets.add(socket);
-				buffers.set(socket, "");
-			},
-			data(socket, data) {
-				const chunk = typeof data === "string" ? data : Buffer.from(data).toString("utf8");
-				let buf = `${buffers.get(socket) ?? ""}${chunk}`;
-				for (;;) {
-					const nl = buf.indexOf("\n");
-					if (nl < 0) break;
-					const line = buf.slice(0, nl);
-					buf = buf.slice(nl + 1);
-					const send = (msg: BrokerToClient) => {
+				const send = (msg: BrokerToClient) => {
+					try {
+						socket.write(`${JSON.stringify(msg)}\n`);
+					} catch {
+						// drop
+					}
+				};
+				conns.set(socket, {
+					buf: "",
+					send,
+					end: () => {
 						try {
-							socket.write(`${JSON.stringify(msg)}\n`);
-						} catch {
-							// drop
-						}
-					};
-					void handleClientLine(line, send).catch(() => {
-						send({ v: 1, id: "0", type: "error", error: "internal" });
-					});
-				}
-				buffers.set(socket, buf);
-			},
-			close(socket) {
-				sockets.delete(socket);
-				for (const slot of sessions.values()) {
-					if (slot.send) {
-						try {
-							// identity is the closure from this socket; drop matching senders
+							socket.end();
 						} catch {
 							// ignore
 						}
-					}
+					},
+				});
+			},
+			data(socket, data) {
+				const conn = conns.get(socket);
+				if (!conn) return;
+				const chunk = typeof data === "string" ? data : new TextDecoder().decode(data);
+				conn.buf += chunk;
+				for (;;) {
+					const nl = conn.buf.indexOf("\n");
+					if (nl < 0) break;
+					const line = conn.buf.slice(0, nl);
+					conn.buf = conn.buf.slice(nl + 1);
+					void handleClientLine(line, conn.send).catch(() => {
+						conn.send({ v: 1, id: "0", type: "error", error: "internal" });
+					});
 				}
 			},
+			close(socket) {
+				const conn = conns.get(socket);
+				conns.delete(socket);
+				if (conn) dropSend(conn.send);
+			},
 			error(socket) {
-				sockets.delete(socket);
+				const conn = conns.get(socket);
+				conns.delete(socket);
+				if (conn) dropSend(conn.send);
 			},
 		},
 	});
-
-	// Track senders by wrapping writes so close can drop the right session slots.
-	const senders = new Map<UnixSocket, (msg: BrokerToClient) => void>();
 
 	async function close(): Promise<void> {
 		try {
@@ -443,15 +451,11 @@ export async function createBrokerServer(opts: {
 		} catch {
 			// already stopped
 		}
-		for (const socket of sockets) {
-			try {
-				socket.end();
-			} catch {
-				// ignore
-			}
+		for (const conn of conns.values()) {
+			dropSend(conn.send);
+			conn.end();
 		}
-		sockets.clear();
-		senders.clear();
+		conns.clear();
 		try {
 			unlinkSync(sock);
 		} catch {

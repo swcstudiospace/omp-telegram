@@ -19,7 +19,7 @@ function readOffset(dataDir: string): number {
 		const parsed: unknown = JSON.parse(readFileSync(offsetPath(dataDir), "utf8"));
 		if (typeof parsed === "number" && Number.isFinite(parsed)) return parsed;
 		if (parsed && typeof parsed === "object" && "offset" in parsed) {
-			const n = (parsed as { offset: unknown }).offset;
+			const n = parsed.offset;
 			if (typeof n === "number" && Number.isFinite(n)) return n;
 		}
 	} catch {

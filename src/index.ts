@@ -1,7 +1,8 @@
 import { join } from "node:path";
 import type { ImageContent, TextContent } from "@oh-my-pi/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
-import { BrokerClient, ensureBroker } from "./broker/client.ts";
+import { BrokerClient } from "./broker/client.ts";
+import { ensureBroker } from "./broker/ensure.ts";
 import { renderLongPhoto } from "./capture/long-photo.ts";
 import { formatStatus, parseTelegramArgs } from "./commands.ts";
 import { configProblems, loadConfig } from "./config.ts";
@@ -71,11 +72,14 @@ async function rosterOf(client: BrokerClient | undefined): Promise<RosterEntry[]
 	if (!client) return [];
 	try {
 		const data: unknown = await client.status();
-		if (!data || typeof data !== "object" || !("roster" in data) || !Array.isArray(data.roster)) return [];
-		return data.roster.filter(isRosterEntry);
+		if (Array.isArray(data)) return data.filter(isRosterEntry);
+		if (data && typeof data === "object" && "roster" in data && Array.isArray(data.roster)) {
+			return data.roster.filter(isRosterEntry);
+		}
 	} catch {
 		return [];
 	}
+	return [];
 }
 
 export default function telegram(pi: ExtensionAPI): void {
@@ -138,10 +142,11 @@ export default function telegram(pi: ExtensionAPI): void {
 		cfg = loadConfig();
 		if (!enabled()) return false;
 		if (tokenChannelProblems(cfg).length > 0) return false;
-		session = sessionInfoFromCtx(ctx);
+		const info = sessionInfoFromCtx(ctx);
+		session = info;
 		try {
 			await ensureBroker({ dataDir: cfg.dataDir, pluginRoot });
-			const next = await BrokerClient.connect({ dataDir: cfg.dataDir, session });
+			const next = await BrokerClient.connect({ dataDir: cfg.dataDir, session: info });
 			await next.register();
 			bindClient(next, ctx);
 			client = next;
@@ -160,7 +165,8 @@ export default function telegram(pi: ExtensionAPI): void {
 		stopHookActive: boolean,
 		force: boolean,
 	): Promise<boolean> {
-		if (!client) return false;
+		const active = client;
+		if (!active) return false;
 		const info = session ?? sessionInfoFromCtx(ctx);
 		const planned = planCompletion({
 			cfg: effectiveCfg(),
@@ -189,7 +195,7 @@ export default function telegram(pi: ExtensionAPI): void {
 				origin: planned.post.origin,
 				fingerprint: fingerprintTurn(planned.post),
 			};
-			await client.completion(payload);
+			await active.completion(payload);
 			lastFingerprint = payload.fingerprint;
 			lastPostedAt = Date.now();
 			return true;
@@ -242,6 +248,7 @@ export default function telegram(pi: ExtensionAPI): void {
 		}
 		if (cmd === "on") {
 			enabledOverride = true;
+			await disconnect();
 			const ok = await connectBroker(ctx);
 			if (!ok) {
 				const problems = tokenChannelProblems(cfg);

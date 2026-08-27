@@ -34,7 +34,7 @@ export class BrokerClient {
 	#closed = false;
 	#registered = false;
 	#backoff = BACKOFF_MIN;
-	#reconnectTimer?: ReturnType<typeof setTimeout>;
+	#reconnectTimer?: Timer;
 	#connecting?: Promise<void>;
 
 	private constructor(dataDir: string, session: SessionInfo) {
@@ -190,7 +190,7 @@ export class BrokerClient {
 	}
 
 	#onData(data: string | ArrayBuffer | Uint8Array): void {
-		const chunk = typeof data === "string" ? data : Buffer.from(data).toString("utf8");
+		const chunk = typeof data === "string" ? data : new TextDecoder().decode(data);
 		this.#buf += chunk;
 		for (;;) {
 			const nl = this.#buf.indexOf("\n");
@@ -235,15 +235,15 @@ export class BrokerClient {
 		if (!socket) throw new Error("disconnected");
 		const id = this.#nextId();
 		const msg = build(id);
-		return new Promise((resolve, reject) => {
-			this.#pending.set(id, { resolve, reject });
-			try {
-				socket.write(`${JSON.stringify(msg)}\n`);
-			} catch (err) {
-				this.#pending.delete(id);
-				this.#onDead();
-				reject(err instanceof Error ? err : new Error("write failed"));
-			}
-		});
+		const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+		this.#pending.set(id, { resolve, reject });
+		try {
+			socket.write(`${JSON.stringify(msg)}\n`);
+		} catch (err) {
+			this.#pending.delete(id);
+			this.#onDead();
+			reject(err instanceof Error ? err : new Error("write failed"));
+		}
+		return promise;
 	}
 }
