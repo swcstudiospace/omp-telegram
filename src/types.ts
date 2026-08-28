@@ -140,10 +140,46 @@ export type TelegramUpdate = {
 	};
 };
 
+export type RoutedOmpCommand = {
+	kind: "omp";
+	name: "goal" | "advisor";
+	text: string;
+};
+
+export type RoutedShellCommand = {
+	kind: "exec";
+	argv: string[];
+	text: string;
+};
+
+export type RoutedPromptCommand = {
+	kind: "prompt";
+	text: string;
+};
+
+export type RoutedControlCommand = {
+	kind: "control";
+	name: "stop" | "status" | "post";
+};
+
+export type RoutedCommand =
+	| RoutedOmpCommand
+	| RoutedShellCommand
+	| RoutedPromptCommand
+	| RoutedControlCommand;
+
+export type TerminalSnapshot = {
+	cols: number;
+	rows: number;
+	lines: string[];
+	capturedAt: number;
+};
+
 export type ClientToBroker =
 	| { v: 1; id: string; type: "register"; session: SessionInfo }
 	| { v: 1; id: string; type: "heartbeat"; sessionId: SessionId; idle: boolean; title?: string }
 	| { v: 1; id: string; type: "completion"; sessionId: SessionId; payload: CompletionPayload }
+	| { v: 1; id: string; type: "terminal_snapshot"; sessionId: SessionId; snapshot: TerminalSnapshot }
 	| { v: 1; id: string; type: "unregister"; sessionId: SessionId }
 	| { v: 1; id: string; type: "status" };
 
@@ -159,7 +195,9 @@ export type BrokerToClient =
 			chatId: number;
 			images: CommentImage[];
 	  }
-	| { v: 1; type: "abort"; sessionId: SessionId; commentId: number; chatId: number };
+	| { v: 1; type: "abort"; sessionId: SessionId; commentId: number; chatId: number }
+	| { v: 1; type: "command"; sessionId: SessionId; commandId: string; command: RoutedCommand }
+	| { v: 1; type: "terminal_snapshot_request"; sessionId: SessionId; requestId: string };
 
 export type BrokerMessage = ClientToBroker | BrokerToClient;
 

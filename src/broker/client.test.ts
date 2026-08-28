@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { SessionInfo, TelegramConfig, TelegramTransport } from "../types.ts";
+import type { BrokerToClient, ClientToBroker, SessionInfo, TelegramConfig, TelegramTransport } from "../types.ts";
 import { BrokerClient } from "./client.ts";
 import { createBrokerServer } from "./server.ts";
 
@@ -87,5 +87,32 @@ describe("BrokerClient", () => {
 			fingerprint: "fp",
 		});
 		expect(result).toMatchObject({ messageId: 10, chatId: -100111 });
+	});
+
+	test("accepts command dispatch messages", () => {
+		const msg: BrokerToClient = {
+			v: 1,
+			type: "command",
+			sessionId: "sess-1",
+			commandId: "cmd-1",
+			command: { kind: "omp", name: "goal", text: "/goal ship this" },
+		};
+		expect(msg.command.kind).toBe("omp");
+	});
+
+	test("accepts terminal snapshot responses", () => {
+		const msg: ClientToBroker = {
+			v: 1,
+			id: "1",
+			type: "terminal_snapshot",
+			sessionId: "sess-1",
+			snapshot: {
+				cols: 120,
+				rows: 40,
+				lines: ["$ omp", "done"],
+				capturedAt: 1,
+			},
+		};
+		expect(msg.snapshot.lines.at(-1)).toBe("done");
 	});
 });
