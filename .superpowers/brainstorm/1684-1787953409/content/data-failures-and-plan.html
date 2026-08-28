@@ -1,0 +1,87 @@
+<h2>Data, Failures, And Delivery Plan</h2>
+<p class="subtitle">The final design section: what the extension stores, how it behaves when parts fail, and how to implement it in safe slices.</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Persistent Records</div>
+    <div class="mockup-body">
+      <div class="mock-content"><b>Session registry</b>: session id, title, cwd, pid, heartbeat, mode, terminal handle</div>
+      <div class="mock-content"><b>Post binding</b>: Telegram channel post -> session id</div>
+      <div class="mock-content"><b>Command audit</b>: who sent what, when, parsed kind, dispatched result</div>
+      <div class="mock-content"><b>Capture metadata</b>: transcript path, terminal dimensions, rendered image path</div>
+      <div class="mock-content"><b>Broker state</b>: update offset, daemon pid, socket, locks</div>
+    </div>
+  </div>
+  <div class="mockup">
+    <div class="mockup-header">Failure Handling</div>
+    <div class="mockup-body">
+      <div class="mock-content">If Telegram is down, keep broker alive and retry polling/posting</div>
+      <div class="mock-content">If session is offline, reply with offline status and do not drop audit</div>
+      <div class="mock-content">If terminal capture fails, still post completion with explicit capture-failed marker</div>
+      <div class="mock-content">If `/exec` is denied, reply with policy reason and log it</div>
+      <div class="mock-content">If reply target is missing, say it is not a bound OMP session post</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Recommended Data Model Additions</h3>
+  <div class="options">
+    <div class="option">
+      <div class="letter">A</div>
+      <div class="content">
+        <h3>Broker Protocol</h3>
+        <p>Add message types for terminal registration, terminal snapshot requests, OMP command dispatch, guarded shell dispatch, and command acknowledgements.</p>
+      </div>
+    </div>
+    <div class="option">
+      <div class="letter">B</div>
+      <div class="content">
+        <h3>Session Runtime</h3>
+        <p>Add a terminal adapter inside each session that can mirror output into a rolling PTY transcript and execute approved routed commands.</p>
+      </div>
+    </div>
+    <div class="option">
+      <div class="letter">C</div>
+      <div class="content">
+        <h3>Telegram Parser</h3>
+        <p>Upgrade reply parsing so `/goal`, `/advisor`, `/exec`, `/stop`, `/status`, and plain text each map to distinct broker actions.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Implementation Slices</h3>
+  <div class="pros-cons">
+    <div class="pros">
+      <h4>Slice 1</h4>
+      <ul>
+        <li>Add protocol types and broker command routing</li>
+        <li>Support `/goal`, `/advisor`, plain text, `/stop`, `/status` reply commands</li>
+        <li>Return Telegram acknowledgements for accepted and rejected commands</li>
+      </ul>
+    </div>
+    <div class="pros">
+      <h4>Slice 2</h4>
+      <ul>
+        <li>Add terminal adapter and rolling transcript capture</li>
+        <li>Render terminal-ending image from transcript</li>
+        <li>Post completion with terminal evidence attached</li>
+      </ul>
+    </div>
+    <div class="pros">
+      <h4>Slice 3</h4>
+      <ul>
+        <li>Add guarded `/exec` policy, allowlist, and auditing</li>
+        <li>Add failure-mode coverage and regression tests</li>
+        <li>Polish operator UX and docs</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Test Plan</h3>
+  <p>Cover parser tests for reply commands, broker routing tests for online/offline sessions, terminal transcript rendering tests, completion-post tests with fallback behavior, and integration tests for end-to-end reply-to-session control.</p>
+</div>
