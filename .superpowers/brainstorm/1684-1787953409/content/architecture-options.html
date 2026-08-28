@@ -1,0 +1,76 @@
+<h2>OMP Telegram Extension Options</h2>
+<p class="subtitle">Choose the control model that best matches how you want to run sessions day to day.</p>
+
+<div class="cards">
+  <div class="card" data-choice="relay" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">Option A: Command Relay</div>
+        <div class="mockup-body">
+          <div class="mock-nav">Telegram Group -> OMP Extension</div>
+          <div class="mock-content">Reply to completion post</div>
+          <div class="mock-content">Route command to active session</div>
+          <div class="mock-content">Post terminal screenshot on completion</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Option A</h3>
+      <p>Smallest change: replies on a session post deliver OMP commands and guarded shell actions into that live session.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Fastest to ship</li><li>Fits current code</li><li>Low complexity</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Weak audit model</li><li>Limited queueing</li><li>Harder recovery if session dies</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="broker" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">Option B: Broker Control Plane</div>
+        <div class="mockup-body">
+          <div class="mock-nav">Telegram Group -> Broker Daemon</div>
+          <div style="display:flex;gap:12px">
+            <div class="mock-sidebar">Session roster</div>
+            <div class="mock-content">Command queue + audit log</div>
+          </div>
+          <div class="mock-content">Terminal capture worker</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Option B</h3>
+      <p>Make the local broker the authority for session bindings, OMP command dispatch, terminal screenshots, and Telegram acknowledgements.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Clear extension boundary</li><li>Good auditing</li><li>Best fit for multi-session ops</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>More implementation work</li><li>Needs terminal adapter design</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="jobs" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">Option C: Durable Job Orchestrator</div>
+        <div class="mockup-body">
+          <div class="mock-nav">Telegram Group -> Queue -> Workers</div>
+          <div class="mock-content">Persist commands and snapshots</div>
+          <div class="mock-content">Retry, replay, history, automation hooks</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Option C</h3>
+      <p>Treat Telegram as a full remote operations surface with durable jobs, event history, and stronger restart behavior.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Most robust</li><li>Excellent history</li><li>Future automation ready</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Largest scope</li><li>Slowest to deliver</li><li>Overkill for first release</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Recommendation</h3>
+  <p>Option B is the right target for a proper extension: keep reply-only targeting in Telegram, but centralize command parsing, guarded execution, terminal screenshot capture, and audit events in the broker.</p>
+</div>
