@@ -1,0 +1,80 @@
+<h2>Command And Capture Design</h2>
+<p class="subtitle">How replies in Telegram become safe OMP actions, and how the broker captures the terminal that actually ran the session.</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Telegram Command Flow</div>
+    <div class="mockup-body">
+      <div class="mock-content">1. Operator replies to a session post</div>
+      <div class="mock-content">2. Broker resolves bound session</div>
+      <div class="mock-content">3. Parser classifies message</div>
+      <div class="mock-content">4. Broker dispatches action to session</div>
+      <div class="mock-content">5. Bot posts ack or result</div>
+    </div>
+  </div>
+  <div class="mockup">
+    <div class="mockup-header">Terminal Capture Flow</div>
+    <div class="mockup-body">
+      <div class="mock-content">1. Session registers terminal handle</div>
+      <div class="mock-content">2. Completion event reaches broker</div>
+      <div class="mock-content">3. Broker requests final terminal snapshot</div>
+      <div class="mock-content">4. Renderer composes terminal screenshot + summary</div>
+      <div class="mock-content">5. Telegram post includes the real terminal ending</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Recognized Reply Commands</h3>
+  <div class="options">
+    <div class="option">
+      <div class="letter">1</div>
+      <div class="content">
+        <h3>OMP Commands</h3>
+        <p><code>/goal ...</code>, <code>/advisor ...</code>, and plain follow-up text are transformed into structured OMP user input for that session.</p>
+      </div>
+    </div>
+    <div class="option">
+      <div class="letter">2</div>
+      <div class="content">
+        <h3>Guarded Shell</h3>
+        <p><code>/exec ...</code> runs only through an allowlisted shell bridge with audit logging, sender checks, and explicit command echo in Telegram.</p>
+      </div>
+    </div>
+    <div class="option">
+      <div class="letter">3</div>
+      <div class="content">
+        <h3>Session Control</h3>
+        <p><code>/stop</code>, <code>/status</code>, and <code>/post</code> remain broker-level controls tied to the replied session post.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Recommended Capture Mechanism</h3>
+  <div class="pros-cons">
+    <div class="pros">
+      <h4>Use A PTY Transcript + Renderer</h4>
+      <ul>
+        <li>Wrap the OMP session in a managed PTY</li>
+        <li>Mirror terminal output into a rolling transcript buffer</li>
+        <li>Render the final visible rows into a terminal-style image at completion time</li>
+        <li>Avoid brittle desktop screenshot dependencies</li>
+      </ul>
+    </div>
+    <div class="cons">
+      <h4>Do Not Depend On OS Screenshots</h4>
+      <ul>
+        <li>Headless servers may not have a GUI</li>
+        <li>Real screen capture is harder to secure</li>
+        <li>Window focus and terminal emulator differences create noise</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Recommended Result Post</h3>
+  <p>Post one completion image that combines the assistant summary and the terminal ending, or post the existing long-photo plus a second terminal screenshot when the terminal view is materially different.</p>
+</div>
