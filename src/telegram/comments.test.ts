@@ -119,16 +119,40 @@ describe("resolveBoundSession", () => {
 });
 
 describe("parseCommentCommand", () => {
-	test("stop and stop@bot abort", () => {
-		expect(parseCommentCommand("/stop")).toEqual({ kind: "abort" });
-		expect(parseCommentCommand("/stop@omp_bot")).toEqual({ kind: "abort" });
-		expect(parseCommentCommand("  /stop@omp_bot now ")).toEqual({ kind: "abort" });
+	test("goal and advisor become omp commands", () => {
+		expect(parseCommentCommand("/goal ship it")).toEqual({
+			kind: "omp",
+			name: "goal",
+			text: "/goal ship it",
+		});
+		expect(parseCommentCommand("/advisor review options")).toEqual({
+			kind: "omp",
+			name: "advisor",
+			text: "/advisor review options",
+		});
 	});
 
-	test("sessions and status", () => {
-		expect(parseCommentCommand("/sessions")).toEqual({ kind: "status" });
-		expect(parseCommentCommand("/status")).toEqual({ kind: "status" });
-		expect(parseCommentCommand("/status@omp_bot")).toEqual({ kind: "status" });
+	test("stop sessions status and post stay control commands", () => {
+		expect(parseCommentCommand("/stop")).toEqual({ kind: "control", name: "stop" });
+		expect(parseCommentCommand("/stop@omp_bot")).toEqual({ kind: "control", name: "stop" });
+		expect(parseCommentCommand("/sessions")).toEqual({ kind: "control", name: "status" });
+		expect(parseCommentCommand("/status")).toEqual({ kind: "control", name: "status" });
+		expect(parseCommentCommand("/status@omp_bot")).toEqual({ kind: "control", name: "status" });
+		expect(parseCommentCommand("/post")).toEqual({ kind: "control", name: "post" });
+	});
+
+	test("exec becomes guarded shell command", () => {
+		expect(parseCommentCommand("/exec git status")).toEqual({
+			kind: "exec",
+			argv: ["git", "status"],
+			text: "/exec git status",
+		});
+		expect(parseCommentCommand(" /exec@omp_bot pwd ")).toEqual({
+			kind: "exec",
+			argv: ["pwd"],
+			text: "/exec@omp_bot pwd",
+		});
+		expect(parseCommentCommand("/exec")).toEqual({ kind: "ignore" });
 	});
 
 	test("empty and unknown slash ignore", () => {

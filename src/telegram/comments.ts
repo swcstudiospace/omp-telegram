@@ -1,4 +1,4 @@
-import type { BoundPost, IncomingComment } from "../types.ts";
+import type { BoundPost, IncomingComment, RoutedCommand } from "../types.ts";
 
 export function sameChatId(a: string | number, b: string | number): boolean {
 	const sa = String(a).trim();
@@ -64,16 +64,39 @@ export function resolveBoundSession(
 	return undefined;
 }
 
-export function parseCommentCommand(
-	text: string,
-): { kind: "abort" } | { kind: "prompt"; text: string } | { kind: "status" } | { kind: "ignore" } {
+function tokenizeCommand(text: string): { cmd: string; rest: string } | undefined {
+	const trimmed = text.trim();
+	const match = trimmed.match(/^\/([A-Za-z0-9_]+)(?:@\S+)?(?:\s+([\s\S]*))?$/);
+	if (!match) return undefined;
+	return {
+		cmd: match[1]!.toLowerCase(),
+		rest: (match[2] ?? "").trim(),
+	};
+}
+
+function splitExec(rest: string): string[] {
+	return rest.split(/\s+/).filter(Boolean);
+}
+
+export function parseCommentCommand(text: string): RoutedCommand | { kind: "ignore" } {
 	const trimmed = text.trim();
 	if (!trimmed) return { kind: "ignore" };
-	if (trimmed.startsWith("/")) {
-		const cmd = trimmed.replace(/^\/([A-Za-z0-9_]+)(?:@\S+)?/, "/$1").split(/\s+/)[0]?.toLowerCase();
-		if (cmd === "/stop") return { kind: "abort" };
-		if (cmd === "/sessions" || cmd === "/status") return { kind: "status" };
-		return { kind: "ignore" };
+
+	const parsed = tokenizeCommand(trimmed);
+	if (!parsed) {
+		return { kind: "prompt", text: trimmed };
 	}
-	return { kind: "prompt", text: trimmed };
+
+	if (parsed.cmd === "stop") return { kind: "control", name: "stop" };
+	if (parsed.cmd === "status" || parsed.cmd === "sessions") return { kind: "control", name: "status" };
+	if (parsed.cmd === "post") return { kind: "control", name: "post" };
+	if (parsed.cmd === "goal" || parsed.cmd === "advisor") {
+		return { kind: "omp", name: parsed.cmd, text: trimmed };
+	}
+	if (parsed.cmd === "exec") {
+		const argv = splitExec(parsed.rest);
+		return argv.length > 0 ? { kind: "exec", argv, text: trimmed } : { kind: "ignore" };
+	}
+
+	return { kind: "ignore" };
 }
