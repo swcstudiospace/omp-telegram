@@ -1,0 +1,56 @@
+<h2>Chosen Design: Broker Control Plane</h2>
+<p class="subtitle">Reply-only targeting in Telegram, with the broker as the single authority for routing, capture, and audit.</p>
+
+<div class="section">
+  <div class="mockup">
+    <div class="mockup-header">End-to-End Flow</div>
+    <div class="mockup-body">
+      <div class="split">
+        <div class="mockup">
+          <div class="mockup-header">OMP Session Side</div>
+          <div class="mockup-body">
+            <div class="mock-content">Session starts</div>
+            <div class="mock-content">Registers with local broker</div>
+            <div class="mock-content">Publishes heartbeat + completion event</div>
+            <div class="mock-content">Exposes terminal capture handle</div>
+            <div class="mock-content">Accepts routed OMP commands</div>
+          </div>
+        </div>
+        <div class="mockup">
+          <div class="mockup-header">Broker Side</div>
+          <div class="mockup-body">
+            <div class="mock-content">Tracks live session roster</div>
+            <div class="mock-content">Captures terminal screenshot at completion</div>
+            <div class="mock-content">Builds Telegram post payload</div>
+            <div class="mock-content">Stores message-to-session bindings</div>
+            <div class="mock-content">Parses reply commands and audits them</div>
+          </div>
+        </div>
+      </div>
+      <div class="split">
+        <div class="mockup">
+          <div class="mockup-header">Telegram Side</div>
+          <div class="mockup-body">
+            <div class="mock-content">Channel post with completion screenshot</div>
+            <div class="mock-content">Operators reply with `/goal`, `/advisor`, `/exec`, `/stop`</div>
+            <div class="mock-content">Reply always targets the bound session post</div>
+          </div>
+        </div>
+        <div class="mockup">
+          <div class="mockup-header">Audit + Safety</div>
+          <div class="mockup-body">
+            <div class="mock-content">Allowed Telegram users only</div>
+            <div class="mock-content">Recognized OMP command set</div>
+            <div class="mock-content">Guarded shell subcommands</div>
+            <div class="mock-content">Command result ack back to Telegram</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>What This Means</h3>
+  <p>The extension remains lightweight inside OMP, while the broker owns Telegram integration, session bindings, terminal screenshot capture, and command dispatch. That gives you one bot, one control surface, and clean multi-session behavior without turning Telegram into a raw terminal.</p>
+</div>
