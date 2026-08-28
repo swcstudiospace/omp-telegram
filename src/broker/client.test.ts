@@ -2,7 +2,14 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { BrokerToClient, ClientToBroker, SessionInfo, TelegramConfig, TelegramTransport } from "../types.ts";
+import type {
+	BrokerToClient,
+	ClientToBroker,
+	RoutedCommand,
+	SessionInfo,
+	TelegramConfig,
+	TelegramTransport,
+} from "../types.ts";
 import { BrokerClient } from "./client.ts";
 import { createBrokerServer } from "./server.ts";
 
@@ -59,6 +66,23 @@ function mockApi(): TelegramTransport {
 	};
 }
 
+function summarizeCommand(command: RoutedCommand): string {
+	switch (command.kind) {
+		case "omp":
+			return `${command.kind}:${command.name}:${command.text}`;
+		case "exec":
+			return `${command.kind}:${command.argv.join(" ")}:${command.text}`;
+		case "prompt":
+			return `${command.kind}:${command.text}`;
+		case "control":
+			return `${command.kind}:${command.name}`;
+		default: {
+			const unreachable: never = command;
+			return unreachable;
+		}
+	}
+}
+
 describe("BrokerClient", () => {
 	test("register then completion roundtrip ok", async () => {
 		const dataDir = isolate();
@@ -89,19 +113,42 @@ describe("BrokerClient", () => {
 		expect(result).toMatchObject({ messageId: 10, chatId: -100111 });
 	});
 
-	test("accepts command dispatch messages", () => {
-		const msg: BrokerToClient = {
+	test("defines routed command protocol contracts exhaustively", () => {
+		const commands = [
+			{ kind: "omp", name: "goal", text: "/goal ship this" },
+			{ kind: "omp", name: "advisor", text: "/advisor review options" },
+			{ kind: "exec", argv: ["pwd"], text: "/exec pwd" },
+			{ kind: "prompt", text: "continue please" },
+			{ kind: "control", name: "stop" },
+			{ kind: "control", name: "status" },
+			{ kind: "control", name: "post" },
+		] satisfies RoutedCommand[];
+		const messages = commands.map((command, index) => ({
 			v: 1,
 			type: "command",
 			sessionId: "sess-1",
-			commandId: "cmd-1",
-			command: { kind: "omp", name: "goal", text: "/goal ship this" },
-		};
-		expect(msg.command.kind).toBe("omp");
+			commandId: `cmd-${index + 1}`,
+			command,
+		})) satisfies Array<Extract<BrokerToClient, { type: "command" }>>;
+		expect(messages.map((msg) => summarizeCommand(msg.command))).toEqual([
+			"omp:goal:/goal ship this",
+			"omp:advisor:/advisor review options",
+			"exec:pwd:/exec pwd",
+			"prompt:continue please",
+			"control:stop",
+			"control:status",
+			"control:post",
+		]);
 	});
 
-	test("accepts terminal snapshot responses", () => {
-		const msg: ClientToBroker = {
+	test("defines terminal snapshot request and response contracts", () => {
+		const request = {
+			v: 1,
+			type: "terminal_snapshot_request",
+			sessionId: "sess-1",
+			requestId: "req-1",
+		} satisfies Extract<BrokerToClient, { type: "terminal_snapshot_request" }>;
+		const response = {
 			v: 1,
 			id: "1",
 			type: "terminal_snapshot",
@@ -112,7 +159,8 @@ describe("BrokerClient", () => {
 				lines: ["$ omp", "done"],
 				capturedAt: 1,
 			},
-		};
-		expect(msg.snapshot.lines.at(-1)).toBe("done");
+		} satisfies Extract<ClientToBroker, { type: "terminal_snapshot" }>;
+		expect(request.requestId).toBe("req-1");
+		expect(response.snapshot.lines.at(-1)).toBe("done");
 	});
 });
